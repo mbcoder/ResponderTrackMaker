@@ -32,6 +32,9 @@ import com.esri.arcgisruntime.mapping.view.Graphic;
 import com.esri.arcgisruntime.mapping.view.GraphicsOverlay;
 import com.esri.arcgisruntime.mapping.view.MapView;
 import com.esri.arcgisruntime.symbology.SimpleLineSymbol;
+import com.esri.arcgisruntime.symbology.SymbolStyle;
+import java.io.File;
+import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 import javafx.application.Application;
 import javafx.scene.Scene;
@@ -42,6 +45,7 @@ import javafx.stage.Stage;
 public class App extends Application {
 
     private MapView mapView;
+    private GraphicsOverlay graphicsOverlay;
 
     public static void main(String[] args) {
 
@@ -64,12 +68,15 @@ public class App extends Application {
 
         ArcGISMap map = new ArcGISMap(SpatialReferences.getWgs84());
 
+        //test style file
+        //testStyle();
+
         // create a MapView to display the map and add it to the stack pane
         mapView = new MapView();
         mapView.setMap(map);
         stackPane.getChildren().add(mapView);
 
-        GraphicsOverlay graphicsOverlay = new GraphicsOverlay();
+        graphicsOverlay = new GraphicsOverlay();
         mapView.getGraphicsOverlays().add(graphicsOverlay);
         SimpleLineSymbol simpleLineSymbol = new SimpleLineSymbol(SimpleLineSymbol.Style.SOLID, Color.BLUE, 10);
 
@@ -115,6 +122,33 @@ public class App extends Application {
         });
     }
 
+    private void testStyle() {
+        File stylxFile = new File("./CoastGuard.stylx");
+        SymbolStyle vehicleStyle = new SymbolStyle(stylxFile.getAbsolutePath());
+        vehicleStyle.loadAsync();
+        vehicleStyle.addDoneLoadingListener(()-> {
+            System.out.println("style " + vehicleStyle.getLoadStatus());
+            //System.out.println("error " + vehicleStyle.getLoadError());
+            try {
+                makeRenderer(vehicleStyle);
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    private void makeRenderer(SymbolStyle style) throws ExecutionException, InterruptedException {
+        //var respFuture = style.getSymbolAsync(Collections.singletonList("Responder"));
+        var respFuture = style.getSymbolAsync(Collections.singletonList("Helicopter"));
+        var responderSymbol = respFuture.get();
+
+        Point point = new Point(0,0);
+        Graphic graphic = new Graphic(point,responderSymbol);
+        graphicsOverlay.getGraphics().add(graphic);
+    }
+
     private void generateJson(GraphicsOverlay graphicsOverlay) {
         boolean done = false;
         boolean gotData;
@@ -129,6 +163,11 @@ public class App extends Application {
 
                 String id = (String) graphic.getAttributes().get("ID");
                 String trackType = (String) graphic.getAttributes().get("TrackType");
+                // RESP-06 is the local position
+                if (id.equals("RESP-06")) {
+                    trackType = "GPS";
+                }
+
 
 
                 try {
